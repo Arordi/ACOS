@@ -12,6 +12,14 @@ from i18n.providers import (
 
 
 def register_providers() -> None:
+    """
+    Register all ACOS translation providers
+    and their models.
+    """
+
+    # -------------------------------------------------
+    # Google Cloud Translation
+    # -------------------------------------------------
 
     google_provider = (
         GoogleTranslationProvider()
@@ -25,5 +33,17 @@ def register_providers() -> None:
         google_provider
     )
 
+    # -------------------------------------------------
+    # Google translation models
+    # -------------------------------------------------
 
+    for model in (
+        google_provider.get_models()
+    ):
+        provider_manager.register_model(
+            model
+        )
+
+
+# Register providers once when ACOS starts.
 register_providers()
