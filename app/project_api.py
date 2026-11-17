@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from core.database import get_db
@@ -12,26 +15,51 @@ router = APIRouter(
 )
 
 
+# ============================================================
+# CREATE PROJECT
+# ============================================================
+
 @router.post(
     "",
     response_model=ProjectResponse,
+    status_code=status.HTTP_201_CREATED,
 )
 def create_project(
     project_data: ProjectCreate,
     db: Session = Depends(get_db),
 ):
-    project = Project(
-        name=project_data.name,
-        description=project_data.description,
-        project_type=project_data.project_type,
-    )
+    """
+    Create a new ACOS project.
+    """
 
-    db.add(project)
-    db.commit()
-    db.refresh(project)
+    try:
+        project = Project(
+            name=project_data.name,
+            description=project_data.description,
+            project_type=project_data.project_type,
+        )
 
-    return project
+        db.add(project)
+        db.commit()
+        db.refresh(project)
 
+        return project
+
+    except SQLAlchemyError as exc:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "message": "Project could not be created.",
+                "error": str(exc),
+            },
+        ) from exc
+
+
+# ============================================================
+# LIST PROJECTS
+# ============================================================
 
 @router.get(
     "",
@@ -40,4 +68,58 @@ def create_project(
 def list_projects(
     db: Session = Depends(get_db),
 ):
-    return db.query(Project).all()
+    """
+    Return all projects.
+
+    Newest projects are returned first.
+    """
+
+    try:
+        return (
+            db.query(Project)
+            .order_by(Project.id.desc())
+            .all()
+        )
+
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "message": "Projects could not be loaded.",
+                "error": str(exc),
+            },
+        ) from exc
+
+
+# ============================================================
+# GET SINGLE PROJECT
+# ============================================================
+
+@router.get(
+    "/{project_id}",
+    response_model=ProjectResponse,
+)
+def get_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Return one project by ID.
+    """
+
+    project = (
+        db.query(Project)
+        .filter(Project.id == project_id)
+        .first()
+    )
+
+    if project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "message": "Project not found.",
+                "project_id": project_id,
+            },
+        )
+
+    return project
