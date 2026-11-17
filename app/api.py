@@ -3,12 +3,15 @@ from fastapi import APIRouter
 from app.media_api import (
     router as media_router,
 )
+
 from app.project_api import (
     router as project_router,
 )
+
 from i18n.api import (
     router as i18n_router,
 )
+
 from seo.api import (
     router as seo_router,
 )
@@ -23,8 +26,7 @@ def status():
     return {
         "status": "ok",
         "application": "ACOS",
-        "message":
-            "ACOS API is working",
+        "message": "ACOS API is working",
     }
 
 
