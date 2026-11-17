@@ -1,0 +1,37 @@
+from fastapi import APIRouter
+
+from i18n.languages import (
+    get_language_count,
+    get_supported_languages,
+)
+from i18n.validator import (
+    validate_translation_structure,
+)
+
+
+router = APIRouter(
+    prefix="/api/i18n",
+    tags=["Internationalization"],
+)
+
+
+@router.get("/languages")
+def languages():
+    return {
+        "count": get_language_count(),
+        "languages": [
+            {
+                "code": language.code,
+                "name": language.name,
+                "native_name": language.native_name,
+                "locale": language.locale,
+                "rtl": language.rtl,
+            }
+            for language in get_supported_languages()
+        ],
+    }
+
+
+@router.get("/validate")
+def validate():
+    return validate_translation_structure()
