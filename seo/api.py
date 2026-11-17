@@ -9,16 +9,21 @@ from fastapi.responses import (
 from seo.hreflang import (
     generate_hreflang,
 )
+
 from seo.metadata import (
     metadata_manager,
 )
+
 from seo.robots import (
     generate_robots,
 )
+
 from seo.sitemap import (
     generate_sitemap,
 )
+
 from seo.structured_data import (
+    generate_json_ld,
     generate_website_schema,
 )
 
@@ -34,6 +39,7 @@ router = APIRouter(
     include_in_schema=False,
 )
 def robots():
+
     return generate_robots()
 
 
@@ -56,12 +62,14 @@ def seo_status():
 
     return {
         "status": "ok",
+
         "seo": {
             "robots": True,
             "sitemap": True,
             "structured_data": True,
             "hreflang": True,
         },
+
         "registered_pages":
             len(
                 metadata_manager.all()
@@ -86,3 +94,14 @@ def hreflang():
 def structured_data():
 
     return generate_website_schema()
+
+
+@router.get(
+    "/api/seo/json-ld",
+)
+def json_ld():
+
+    return Response(
+        content=generate_json_ld(),
+        media_type="application/ld+json",
+    )
