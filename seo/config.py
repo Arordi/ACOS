@@ -3,12 +3,30 @@ from __future__ import annotations
 import os
 
 
+def _env_bool(
+    name: str,
+    default: bool = False,
+) -> bool:
+    value = os.getenv(name)
+
+    if value is None:
+        return default
+
+    return value.strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 class SEOSettings:
     """
-    Global ACOS SEO configuration.
+    Central SEO configuration for ACOS.
 
-    The same SEO system can be reused by
-    every ACOS website/domain.
+    The configuration is environment-based so the same
+    SEO system can be reused for different websites
+    and domains.
     """
 
     def __init__(self):
@@ -32,34 +50,14 @@ class SEOSettings:
             "en",
         )
 
-        self.robots_enabled = (
-            os.getenv(
-                "SEO_ROBOTS_ENABLED",
-                "true",
-            )
-            .strip()
-            .lower()
-            in {
-                "1",
-                "true",
-                "yes",
-                "on",
-            }
+        self.robots_enabled = _env_bool(
+            "SEO_ROBOTS_ENABLED",
+            True,
         )
 
-        self.indexing_enabled = (
-            os.getenv(
-                "SEO_INDEXING_ENABLED",
-                "true",
-            )
-            .strip()
-            .lower()
-            in {
-                "1",
-                "true",
-                "yes",
-                "on",
-            }
+        self.indexing_enabled = _env_bool(
+            "SEO_INDEXING_ENABLED",
+            True,
         )
 
 
