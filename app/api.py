@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.media_api import router as media_router
 from app.project_api import router as project_router
 
 
@@ -16,3 +17,4 @@ def status():
 
 
 router.include_router(project_router)
+router.include_router(media_router)
