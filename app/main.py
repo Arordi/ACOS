@@ -1,34 +1,24 @@
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from contextlib import asynccontextmanager
 
-app = FastAPI(
-    title="ACOS",
-    description="AI Creative Operating System",
-    version="0.1.0"
-)
-
-
-@app.get("/", response_class=HTMLResponse)
-def home():
-    return """
-    <!DOCTYPE html>
-    <html lang="hy">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>ACOS — AI Creative Operating System</title>
-        <style>
-            body {
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 
 from app.api import router as api_router
+from core.database import Base, engine
+from models import Project, MediaFile
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    yield
 
 
 app = FastAPI(
     title="ACOS",
     description="AI Creative Operating System",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 app.include_router(api_router)
@@ -42,6 +32,7 @@ def home():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
         <title>ACOS — AI Creative Operating System</title>
 
         <style>
@@ -117,4 +108,5 @@ def health():
         "status": "ok",
         "application": "ACOS",
         "version": "0.1.0",
+        "database": "connected",
     }
