@@ -1,0 +1,163 @@
+from __future__ import annotations
+
+import asyncio
+import os
+
+from google.cloud import translate_v3
+
+from i18n.adapters import (
+    TranslationAdapter,
+    provider_result,
+)
+from i18n.providers import ProviderInfo
+
+
+class GoogleTranslationProvider(
+    TranslationAdapter
+):
+
+    @property
+    def info(self) -> ProviderInfo:
+        return ProviderInfo(
+            name="google_cloud_translation",
+            provider_type="translation",
+            priority=10,
+            quality_weight=1.0,
+            cost_weight=1.0,
+            enabled=True,
+            supported_languages=frozenset({
+                "en",
+                "hy",
+                "zh",
+                "hi",
+                "es",
+                "ar",
+                "fr",
+                "bn",
+                "pt",
+                "id",
+                "ur",
+                "ru",
+                "de",
+                "ja",
+                "mr",
+                "vi",
+                "te",
+                "tr",
+                "ta",
+                "ko",
+                "fa",
+                "it",
+                "th",
+                "tl",
+                "ha",
+                "sw",
+                "yue",
+                "gu",
+                "kn",
+                "pa",
+            }),
+            capabilities=frozenset({
+                "translation",
+            }),
+            description=(
+                "Google Cloud Translation "
+                "Advanced"
+            ),
+        )
+
+    def __init__(self):
+        self.project_id = (
+            os.getenv("GOOGLE_CLOUD_PROJECT")
+            or os.getenv("GOOGLE_PROJECT_ID")
+        )
+
+        self.location = os.getenv(
+            "GOOGLE_CLOUD_LOCATION",
+            "global",
+        )
+
+        self.client = None
+
+        if self.project_id:
+            self.client = (
+                translate_v3.TranslationServiceClient()
+            )
+
+    async def translate(
+        self,
+        text: str,
+        source_language: str,
+        target_language: str,
+    ):
+
+        if not self.project_id:
+            return self.disabled(
+                "GOOGLE_CLOUD_PROJECT "
+                "is not configured."
+            )
+
+        if self.client is None:
+            return self.disabled(
+                "Google Translation client "
+                "is not configured."
+            )
+
+        if not text.strip():
+            return self.failed(
+                "Text cannot be empty."
+            )
+
+        parent = (
+            f"projects/{self.project_id}"
+            f"/locations/{self.location}"
+        )
+
+        try:
+            response = await asyncio.to_thread(
+                self.client.translate_text,
+                request={
+                    "parent": parent,
+                    "contents": [text],
+                    "mime_type": "text/plain",
+                    "source_language_code":
+                        source_language,
+                    "target_language_code":
+                        target_language,
+                },
+            )
+
+            if not response.translations:
+                return self.failed(
+                    "Google returned no translation."
+                )
+
+            translated_text = (
+                response
+                .translations[0]
+                .translated_text
+            )
+
+            return provider_result(
+                provider=self.info.name,
+                value=translated_text,
+                confidence=95.0,
+                score=95.0,
+                details=(
+                    "Translation completed "
+                    "by Google Cloud Translation."
+                ),
+                metadata={
+                    "source_language":
+                        source_language,
+                    "target_language":
+                        target_language,
+                    "model": "default",
+                    "location": self.location,
+                },
+            )
+
+        except Exception as exc:
+            return self.failed(
+                f"Google Translation error: {exc}"
+            )
