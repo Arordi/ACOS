@@ -3,6 +3,7 @@ from __future__ import annotations
 from i18n.languages import (
     get_supported_languages,
 )
+
 from seo.config import seo_settings
 
 
@@ -26,8 +27,10 @@ def generate_hreflang(
             {
                 "hreflang":
                     language.locale,
+
                 "language":
                     language.code,
+
                 "url":
                     (
                         f"{seo_settings.base_url}"
@@ -40,14 +43,15 @@ def generate_hreflang(
     result.append(
         {
             "hreflang": "x-default",
-            "language": (
-                seo_settings
-                .default_language
-            ),
-            "url": (
-                f"{seo_settings.base_url}"
-                f"{normalized_path}"
-            ),
+
+            "language":
+                seo_settings.default_language,
+
+            "url":
+                (
+                    f"{seo_settings.base_url}"
+                    f"{normalized_path}"
+                ),
         }
     )
 
