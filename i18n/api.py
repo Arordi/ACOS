@@ -8,6 +8,9 @@ from i18n.languages import (
 from i18n.orchestrator import (
     quality_orchestrator,
 )
+from i18n.providers import (
+    provider_manager,
+)
 from i18n.validator import (
     validate_translation_structure,
 )
@@ -45,6 +48,18 @@ def languages():
 @router.get("/validate")
 def validate():
     return validate_translation_structure()
+
+
+@router.get("/providers")
+def providers():
+    """
+    Return the current ACOS provider and model registry.
+
+    This endpoint is used to verify that providers
+    and models have been registered correctly.
+    """
+
+    return provider_manager.summary()
 
 
 @router.post("/translate")
