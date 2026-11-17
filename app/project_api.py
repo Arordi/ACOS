@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -45,16 +45,13 @@ def create_project(
 
         return project
 
-    except SQLAlchemyError as exc:
+    except SQLAlchemyError:
         db.rollback()
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "message": "Project could not be created.",
-                "error": str(exc),
-            },
-        ) from exc
+            detail="Project could not be created.",
+        )
 
 
 # ============================================================
@@ -66,29 +63,42 @@ def create_project(
     response_model=list[ProjectResponse],
 )
 def list_projects(
+    skip: int = Query(
+        default=0,
+        ge=0,
+        description="Number of projects to skip.",
+    ),
+    limit: int = Query(
+        default=50,
+        ge=1,
+        le=100,
+        description="Maximum number of projects to return.",
+    ),
     db: Session = Depends(get_db),
 ):
     """
-    Return all projects.
+    Return projects.
 
     Newest projects are returned first.
+
+    Pagination:
+        ?skip=0&limit=50
     """
 
     try:
         return (
             db.query(Project)
             .order_by(Project.id.desc())
+            .offset(skip)
+            .limit(limit)
             .all()
         )
 
-    except SQLAlchemyError as exc:
+    except SQLAlchemyError:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "message": "Projects could not be loaded.",
-                "error": str(exc),
-            },
-        ) from exc
+            detail="Projects could not be loaded.",
+        )
 
 
 # ============================================================
@@ -123,3 +133,100 @@ def get_project(
         )
 
     return project
+
+
+# ============================================================
+# UPDATE PROJECT
+# ============================================================
+
+@router.put(
+    "/{project_id}",
+    response_model=ProjectResponse,
+)
+def update_project(
+    project_id: int,
+    project_data: ProjectCreate,
+    db: Session = Depends(get_db),
+):
+    """
+    Update an existing ACOS project.
+    """
+
+    project = (
+        db.query(Project)
+        .filter(Project.id == project_id)
+        .first()
+    )
+
+    if project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "message": "Project not found.",
+                "project_id": project_id,
+            },
+        )
+
+    try:
+        project.name = project_data.name
+        project.description = project_data.description
+        project.project_type = project_data.project_type
+
+        db.commit()
+        db.refresh(project)
+
+        return project
+
+    except SQLAlchemyError:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Project could not be updated.",
+        )
+
+
+# ============================================================
+# DELETE PROJECT
+# ============================================================
+
+@router.delete(
+    "/{project_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Delete an existing ACOS project.
+    """
+
+    project = (
+        db.query(Project)
+        .filter(Project.id == project_id)
+        .first()
+    )
+
+    if project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "message": "Project not found.",
+                "project_id": project_id,
+            },
+        )
+
+    try:
+        db.delete(project)
+        db.commit()
+
+    except SQLAlchemyError:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Project could not be deleted.",
+        )
+
+    return None
