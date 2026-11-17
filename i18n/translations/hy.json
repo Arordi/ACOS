@@ -1,0 +1,20 @@
+{
+  "app.name": "ACOS",
+  "app.description": "AI Creative Operating System",
+
+  "menu.home": "Գլխավոր",
+  "menu.projects": "Նախագծեր",
+  "menu.media": "Մեդիա",
+  "menu.settings": "Կարգավորումներ",
+  "menu.language": "Լեզու",
+
+  "common.save": "Պահպանել",
+  "common.cancel": "Չեղարկել",
+  "common.delete": "Ջնջել",
+  "common.close": "Փակել",
+
+  "status.ready": "ACOS-ը պատրաստ է",
+  "status.error": "Տեղի է ունեցել սխալ",
+
+  "validation.required": "Այս դաշտը պարտադիր է"
+}
