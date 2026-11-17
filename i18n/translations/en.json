@@ -1,0 +1,20 @@
+{
+  "app.name": "ACOS",
+  "app.description": "AI Creative Operating System",
+
+  "menu.home": "Home",
+  "menu.projects": "Projects",
+  "menu.media": "Media",
+  "menu.settings": "Settings",
+  "menu.language": "Language",
+
+  "common.save": "Save",
+  "common.cancel": "Cancel",
+  "common.delete": "Delete",
+  "common.close": "Close",
+
+  "status.ready": "ACOS is ready",
+  "status.error": "An error occurred",
+
+  "validation.required": "This field is required"
+}
