@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Protocol
 
+from i18n.providers import ProviderInfo, ProviderManager
+
 
 class ProviderStatus(str, Enum):
     SUCCESS = "success"
@@ -23,7 +25,9 @@ class ProviderResult:
     cost: float = 0.0
     latency_ms: float = 0.0
     details: str = ""
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(
+        default_factory=dict
+    )
 
 
 @dataclass
@@ -31,12 +35,18 @@ class ConsensusResult:
     value: Any
     confidence: float
     status: str
+
     providers_used: list[str]
+
     successful_providers: int
     failed_providers: int
     unsupported_providers: int
+
     disagreement: bool
-    details: list[str] = field(default_factory=list)
+
+    details: list[str] = field(
+        default_factory=list
+    )
 
 
 class TranslationProvider(Protocol):
@@ -91,23 +101,48 @@ class PronunciationProvider(Protocol):
 
 class ProviderRegistry:
 
-    def __init__(self):
+    def __init__(
+        self,
+        manager: ProviderManager,
+    ):
+        self.manager = manager
+
         self.translation_providers = []
         self.dictionary_providers = []
         self.grammar_providers = []
         self.pronunciation_providers = []
 
-    def register_translation(self, provider):
-        self.translation_providers.append(provider)
+    def register_translation(
+        self,
+        provider: TranslationProvider,
+    ):
+        self.translation_providers.append(
+            provider
+        )
 
-    def register_dictionary(self, provider):
-        self.dictionary_providers.append(provider)
+    def register_dictionary(
+        self,
+        provider: DictionaryProvider,
+    ):
+        self.dictionary_providers.append(
+            provider
+        )
 
-    def register_grammar(self, provider):
-        self.grammar_providers.append(provider)
+    def register_grammar(
+        self,
+        provider: GrammarProvider,
+    ):
+        self.grammar_providers.append(
+            provider
+        )
 
-    def register_pronunciation(self, provider):
-        self.pronunciation_providers.append(provider)
+    def register_pronunciation(
+        self,
+        provider: PronunciationProvider,
+    ):
+        self.pronunciation_providers.append(
+            provider
+        )
 
 
 class QualityOrchestrator:
@@ -123,13 +158,17 @@ class QualityOrchestrator:
     async def _run_provider(
         self,
         provider_call,
-        provider_name: str = "unknown",
+        provider_name: str,
     ) -> ProviderResult:
 
         try:
+
             result = await provider_call()
 
-            if isinstance(result, ProviderResult):
+            if isinstance(
+                result,
+                ProviderResult,
+            ):
                 return result
 
             return ProviderResult(
@@ -139,13 +178,18 @@ class QualityOrchestrator:
             )
 
         except NotImplementedError:
+
             return ProviderResult(
                 provider=provider_name,
                 status=ProviderStatus.UNSUPPORTED,
-                details="Provider does not support this operation.",
+                details=(
+                    "Provider does not support "
+                    "this operation."
+                ),
             )
 
         except Exception as exc:
+
             return ProviderResult(
                 provider=provider_name,
                 status=ProviderStatus.FAILED,
@@ -166,7 +210,9 @@ class QualityOrchestrator:
             provider_name,
             call,
         ):
+
             async with semaphore:
+
                 return await self._run_provider(
                     call,
                     provider_name,
@@ -180,7 +226,12 @@ class QualityOrchestrator:
             for provider_name, call in calls
         ]
 
-        return await asyncio.gather(*tasks)
+        if not tasks:
+            return []
+
+        return await asyncio.gather(
+            *tasks
+        )
 
     async def translate(
         self,
@@ -199,10 +250,18 @@ class QualityOrchestrator:
                         target_language=target_language,
                     ),
             )
-            for provider in self.registry.translation_providers
+            for provider
+            in self.registry.translation_providers
+            if self._provider_available(
+                provider,
+                target_language,
+                "translation",
+            )
         ]
 
-        results = await self._run_many(calls)
+        results = await self._run_many(
+            calls
+        )
 
         return self._build_translation_consensus(
             results
@@ -223,10 +282,18 @@ class QualityOrchestrator:
                         language=language,
                     ),
             )
-            for provider in self.registry.dictionary_providers
+            for provider
+            in self.registry.dictionary_providers
+            if self._provider_available(
+                provider,
+                language,
+                "dictionary",
+            )
         ]
 
-        return await self._run_many(calls)
+        return await self._run_many(
+            calls
+        )
 
     async def check_grammar(
         self,
@@ -243,10 +310,18 @@ class QualityOrchestrator:
                         language=language,
                     ),
             )
-            for provider in self.registry.grammar_providers
+            for provider
+            in self.registry.grammar_providers
+            if self._provider_available(
+                provider,
+                language,
+                "grammar",
+            )
         ]
 
-        return await self._run_many(calls)
+        return await self._run_many(
+            calls
+        )
 
     async def check_pronunciation(
         self,
@@ -265,10 +340,18 @@ class QualityOrchestrator:
                         audio_path=audio_path,
                     ),
             )
-            for provider in self.registry.pronunciation_providers
+            for provider
+            in self.registry.pronunciation_providers
+            if self._provider_available(
+                provider,
+                language,
+                "pronunciation_assessment",
+            )
         ]
 
-        return await self._run_many(calls)
+        return await self._run_many(
+            calls
+        )
 
     async def full_quality_check(
         self,
@@ -277,20 +360,26 @@ class QualityOrchestrator:
         audio_path: str | None = None,
     ) -> dict[str, Any]:
 
-        dictionary_task = self.check_dictionary(
-            text=text,
-            language=language,
+        dictionary_task = (
+            self.check_dictionary(
+                text=text,
+                language=language,
+            )
         )
 
-        grammar_task = self.check_grammar(
-            text=text,
-            language=language,
+        grammar_task = (
+            self.check_grammar(
+                text=text,
+                language=language,
+            )
         )
 
-        pronunciation_task = self.check_pronunciation(
-            text=text,
-            language=language,
-            audio_path=audio_path,
+        pronunciation_task = (
+            self.check_pronunciation(
+                text=text,
+                language=language,
+                audio_path=audio_path,
+            )
         )
 
         (
@@ -311,6 +400,34 @@ class QualityOrchestrator:
             "pronunciation": pronunciation_results,
         }
 
+    def _provider_available(
+        self,
+        provider,
+        language: str,
+        capability: str,
+    ) -> bool:
+
+        info = getattr(
+            provider,
+            "info",
+            None,
+        )
+
+        if info is None:
+            return True
+
+        if not isinstance(
+            info,
+            ProviderInfo,
+        ):
+            return True
+
+        return self.registry.manager.supports(
+            provider_name=info.name,
+            language=language,
+            capability=capability,
+        )
+
     def _build_translation_consensus(
         self,
         results: list[ProviderResult],
@@ -319,20 +436,23 @@ class QualityOrchestrator:
         successful = [
             result
             for result in results
-            if result.status == ProviderStatus.SUCCESS
+            if result.status
+            == ProviderStatus.SUCCESS
             and result.value is not None
         ]
 
         failed = [
             result
             for result in results
-            if result.status == ProviderStatus.FAILED
+            if result.status
+            == ProviderStatus.FAILED
         ]
 
         unsupported = [
             result
             for result in results
-            if result.status == ProviderStatus.UNSUPPORTED
+            if result.status
+            == ProviderStatus.UNSUPPORTED
         ]
 
         if not successful:
@@ -344,19 +464,27 @@ class QualityOrchestrator:
                 providers_used=[],
                 successful_providers=0,
                 failed_providers=len(failed),
-                unsupported_providers=len(unsupported),
+                unsupported_providers=len(
+                    unsupported
+                ),
                 disagreement=False,
                 details=[
-                    "No translation provider returned a usable result."
+                    "No translation provider "
+                    "returned a usable result."
                 ],
             )
 
-        groups: dict[str, list[ProviderResult]] = {}
+        groups: dict[
+            str,
+            list[ProviderResult],
+        ] = {}
 
         for result in successful:
 
-            normalized = self._normalize_text(
-                str(result.value)
+            normalized = (
+                self._normalize_text(
+                    str(result.value)
+                )
             )
 
             groups.setdefault(
@@ -376,31 +504,42 @@ class QualityOrchestrator:
             reverse=True,
         )
 
-        _, best_results = ranked_groups[0]
-
-        disagreement = len(groups) > 1
-
-        confidence = self._calculate_confidence(
-            best_results=best_results,
-            successful_count=len(successful),
-            disagreement=disagreement,
+        _, best_results = (
+            ranked_groups[0]
         )
 
-        status = self._status_from_confidence(
-            confidence
+        disagreement = (
+            len(groups) > 1
+        )
+
+        confidence = (
+            self._calculate_confidence(
+                best_results=best_results,
+                successful_count=len(
+                    successful
+                ),
+                disagreement=disagreement,
+            )
+        )
+
+        status = (
+            self._status_from_confidence(
+                confidence
+            )
         )
 
         details = []
 
         if disagreement:
+
             details.append(
                 "Translation providers disagree."
             )
 
-            if len(ranked_groups) > 1:
-                details.append(
-                    "Multiple translation candidates were detected."
-                )
+            details.append(
+                "Multiple translation "
+                "candidates were detected."
+            )
 
         return ConsensusResult(
             value=best_results[0].value,
@@ -410,9 +549,15 @@ class QualityOrchestrator:
                 result.provider
                 for result in successful
             ],
-            successful_providers=len(successful),
-            failed_providers=len(failed),
-            unsupported_providers=len(unsupported),
+            successful_providers=len(
+                successful
+            ),
+            failed_providers=len(
+                failed
+            ),
+            unsupported_providers=len(
+                unsupported
+            ),
             disagreement=disagreement,
             details=details,
         )
@@ -423,7 +568,9 @@ class QualityOrchestrator:
     ) -> str:
 
         return " ".join(
-            text.strip().lower().split()
+            text.strip()
+            .lower()
+            .split()
         )
 
     @staticmethod
@@ -451,7 +598,10 @@ class QualityOrchestrator:
             + agreement_ratio * 100 * 0.30
         )
 
-        if disagreement and agreement_ratio < 0.5:
+        if (
+            disagreement
+            and agreement_ratio < 0.5
+        ):
             confidence -= 15
 
         return round(
@@ -479,7 +629,11 @@ class QualityOrchestrator:
         return "FAIL"
 
 
-provider_registry = ProviderRegistry()
+provider_manager = ProviderManager()
+
+provider_registry = ProviderRegistry(
+    manager=provider_manager
+)
 
 quality_orchestrator = QualityOrchestrator(
     registry=provider_registry,
