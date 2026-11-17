@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse
 from app.api import router as api_router
 from core.database import Base, engine
 from models import Project, MediaFile
+import i18n.bootstrap
 
 
 @asynccontextmanager
