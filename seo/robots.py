@@ -21,10 +21,16 @@ def generate_robots() -> str:
         "Disallow: /openapi.json",
         "",
         (
-            f"Sitemap: "
+            "Sitemap: "
             f"{seo_settings.base_url}"
             "/sitemap.xml"
         ),
     ]
+
+    if not seo_settings.indexing_enabled:
+        lines.extend([
+            "",
+            "# Indexing is disabled by configuration.",
+        ])
 
     return "\n".join(lines) + "\n"
