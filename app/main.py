@@ -19,6 +19,33 @@ def home():
         <title>ACOS — AI Creative Operating System</title>
         <style>
             body {
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
+
+from app.api import router as api_router
+
+
+app = FastAPI(
+    title="ACOS",
+    description="AI Creative Operating System",
+    version="0.1.0",
+)
+
+app.include_router(api_router)
+
+
+@app.get("/", response_class=HTMLResponse)
+def home():
+    return """
+    <!DOCTYPE html>
+    <html lang="hy">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>ACOS — AI Creative Operating System</title>
+
+        <style>
+            body {
                 margin: 0;
                 font-family: Arial, sans-serif;
                 background: #111827;
@@ -57,14 +84,27 @@ def home():
 
     <body>
         <div class="container">
+
             <h1>ACOS</h1>
-            <p>AI Creative Operating System</p>
+
+            <p>
+                AI Creative Operating System
+            </p>
 
             <div class="card">
+
                 <h2>System Status</h2>
-                <p class="status">● ACOS is running</p>
-                <p>CreativeOS core is ready for development.</p>
+
+                <p class="status">
+                    ● ACOS is running
+                </p>
+
+                <p>
+                    CreativeOS core is ready for development.
+                </p>
+
             </div>
+
         </div>
     </body>
     </html>
@@ -76,5 +116,5 @@ def health():
     return {
         "status": "ok",
         "application": "ACOS",
-        "version": "0.1.0"
+        "version": "0.1.0",
     }
