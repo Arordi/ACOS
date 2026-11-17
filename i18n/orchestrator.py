@@ -92,21 +92,21 @@ class PronunciationProvider(Protocol):
 class ProviderRegistry:
 
     def __init__(self):
-        self.translation_providers: list[TranslationProvider] = []
-        self.dictionary_providers: list[DictionaryProvider] = []
-        self.grammar_providers: list[GrammarProvider] = []
-        self.pronunciation_providers: list[PronunciationProvider] = []
+        self.translation_providers = []
+        self.dictionary_providers = []
+        self.grammar_providers = []
+        self.pronunciation_providers = []
 
-    def register_translation(self, provider: TranslationProvider):
+    def register_translation(self, provider):
         self.translation_providers.append(provider)
 
-    def register_dictionary(self, provider: DictionaryProvider):
+    def register_dictionary(self, provider):
         self.dictionary_providers.append(provider)
 
-    def register_grammar(self, provider: GrammarProvider):
+    def register_grammar(self, provider):
         self.grammar_providers.append(provider)
 
-    def register_pronunciation(self, provider: PronunciationProvider):
+    def register_pronunciation(self, provider):
         self.pronunciation_providers.append(provider)
 
 
@@ -123,17 +123,32 @@ class QualityOrchestrator:
     async def _run_provider(
         self,
         provider_call,
+        provider_name: str = "unknown",
     ) -> ProviderResult:
 
         try:
             result = await provider_call()
-            return result
+
+            if isinstance(result, ProviderResult):
+                return result
+
+            return ProviderResult(
+                provider=provider_name,
+                status=ProviderStatus.SUCCESS,
+                value=result,
+            )
+
+        except NotImplementedError:
+            return ProviderResult(
+                provider=provider_name,
+                status=ProviderStatus.UNSUPPORTED,
+                details="Provider does not support this operation.",
+            )
 
         except Exception as exc:
             return ProviderResult(
-                provider="unknown",
+                provider=provider_name,
                 status=ProviderStatus.FAILED,
-                score=0.0,
                 confidence=0.0,
                 details=str(exc),
             )
@@ -147,16 +162,25 @@ class QualityOrchestrator:
             self.max_concurrency
         )
 
-        async def limited_call(call):
+        async def limited_call(
+            provider_name,
+            call,
+        ):
             async with semaphore:
-                return await self._run_provider(call)
+                return await self._run_provider(
+                    call,
+                    provider_name,
+                )
 
-        return await asyncio.gather(
-            *[
-                limited_call(call)
-                for call in calls
-            ]
-        )
+        tasks = [
+            limited_call(
+                provider_name,
+                call,
+            )
+            for provider_name, call in calls
+        ]
+
+        return await asyncio.gather(*tasks)
 
     async def translate(
         self,
@@ -166,10 +190,14 @@ class QualityOrchestrator:
     ) -> ConsensusResult:
 
         calls = [
-            lambda provider=provider: provider.translate(
-                text=text,
-                source_language=source_language,
-                target_language=target_language,
+            (
+                provider.name,
+                lambda provider=provider:
+                    provider.translate(
+                        text=text,
+                        source_language=source_language,
+                        target_language=target_language,
+                    ),
             )
             for provider in self.registry.translation_providers
         ]
@@ -187,9 +215,13 @@ class QualityOrchestrator:
     ) -> list[ProviderResult]:
 
         calls = [
-            lambda provider=provider: provider.check(
-                text=text,
-                language=language,
+            (
+                provider.name,
+                lambda provider=provider:
+                    provider.check(
+                        text=text,
+                        language=language,
+                    ),
             )
             for provider in self.registry.dictionary_providers
         ]
@@ -203,9 +235,13 @@ class QualityOrchestrator:
     ) -> list[ProviderResult]:
 
         calls = [
-            lambda provider=provider: provider.check(
-                text=text,
-                language=language,
+            (
+                provider.name,
+                lambda provider=provider:
+                    provider.check(
+                        text=text,
+                        language=language,
+                    ),
             )
             for provider in self.registry.grammar_providers
         ]
@@ -220,15 +256,60 @@ class QualityOrchestrator:
     ) -> list[ProviderResult]:
 
         calls = [
-            lambda provider=provider: provider.check(
-                text=text,
-                language=language,
-                audio_path=audio_path,
+            (
+                provider.name,
+                lambda provider=provider:
+                    provider.check(
+                        text=text,
+                        language=language,
+                        audio_path=audio_path,
+                    ),
             )
             for provider in self.registry.pronunciation_providers
         ]
 
         return await self._run_many(calls)
+
+    async def full_quality_check(
+        self,
+        text: str,
+        language: str,
+        audio_path: str | None = None,
+    ) -> dict[str, Any]:
+
+        dictionary_task = self.check_dictionary(
+            text=text,
+            language=language,
+        )
+
+        grammar_task = self.check_grammar(
+            text=text,
+            language=language,
+        )
+
+        pronunciation_task = self.check_pronunciation(
+            text=text,
+            language=language,
+            audio_path=audio_path,
+        )
+
+        (
+            dictionary_results,
+            grammar_results,
+            pronunciation_results,
+        ) = await asyncio.gather(
+            dictionary_task,
+            grammar_task,
+            pronunciation_task,
+        )
+
+        return {
+            "language": language,
+            "text": text,
+            "dictionary": dictionary_results,
+            "grammar": grammar_results,
+            "pronunciation": pronunciation_results,
+        }
 
     def _build_translation_consensus(
         self,
@@ -255,6 +336,7 @@ class QualityOrchestrator:
         ]
 
         if not successful:
+
             return ConsensusResult(
                 value=None,
                 confidence=0.0,
@@ -272,13 +354,14 @@ class QualityOrchestrator:
         groups: dict[str, list[ProviderResult]] = {}
 
         for result in successful:
+
             normalized = self._normalize_text(
                 str(result.value)
             )
 
             groups.setdefault(
                 normalized,
-                []
+                [],
             ).append(result)
 
         ranked_groups = sorted(
@@ -286,21 +369,21 @@ class QualityOrchestrator:
             key=lambda item: (
                 len(item[1]),
                 sum(
-                    provider.confidence
-                    for provider in item[1]
+                    result.confidence
+                    for result in item[1]
                 ),
             ),
             reverse=True,
         )
 
-        best_value, best_results = ranked_groups[0]
+        _, best_results = ranked_groups[0]
 
         disagreement = len(groups) > 1
 
         confidence = self._calculate_confidence(
-            best_results,
-            len(successful),
-            disagreement,
+            best_results=best_results,
+            successful_count=len(successful),
+            disagreement=disagreement,
         )
 
         status = self._status_from_confidence(
@@ -316,8 +399,7 @@ class QualityOrchestrator:
 
             if len(ranked_groups) > 1:
                 details.append(
-                    "Conflicting translation candidates "
-                    "were detected."
+                    "Multiple translation candidates were detected."
                 )
 
         return ConsensusResult(
@@ -336,7 +418,10 @@ class QualityOrchestrator:
         )
 
     @staticmethod
-    def _normalize_text(text: str) -> str:
+    def _normalize_text(
+        text: str,
+    ) -> str:
+
         return " ".join(
             text.strip().lower().split()
         )
@@ -370,7 +455,10 @@ class QualityOrchestrator:
             confidence -= 15
 
         return round(
-            max(0.0, min(100.0, confidence)),
+            max(
+                0.0,
+                min(100.0, confidence),
+            ),
             2,
         )
 
@@ -394,5 +482,5 @@ class QualityOrchestrator:
 provider_registry = ProviderRegistry()
 
 quality_orchestrator = QualityOrchestrator(
-    registry=provider_registry
+    registry=provider_registry,
 )
