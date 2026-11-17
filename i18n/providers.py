@@ -53,10 +53,6 @@ class ProviderManager:
             ModelInfo,
         ] = {}
 
-    # -------------------------
-    # PROVIDERS
-    # -------------------------
-
     def register(
         self,
         provider: ProviderInfo,
@@ -118,10 +114,6 @@ class ProviderManager:
             if provider.enabled
         ]
 
-    # -------------------------
-    # MODELS
-    # -------------------------
-
     def register_model(
         self,
         model: ModelInfo,
@@ -178,10 +170,6 @@ class ProviderManager:
             in self._models.values()
             if model.enabled
         ]
-
-    # -------------------------
-    # CAPABILITY CHECKS
-    # -------------------------
 
     def supports(
         self,
@@ -241,10 +229,6 @@ class ProviderManager:
             in model.capabilities
         )
 
-    # -------------------------
-    # AVAILABLE PROVIDERS
-    # -------------------------
-
     def available_for(
         self,
         language: str,
@@ -274,10 +258,6 @@ class ProviderManager:
                 provider.cost_weight,
             ),
         )
-
-    # -------------------------
-    # AVAILABLE MODELS
-    # -------------------------
 
     def available_models_for(
         self,
@@ -309,10 +289,6 @@ class ProviderManager:
             ),
         )
 
-    # -------------------------
-    # SUMMARY
-    # -------------------------
-
     def summary(
         self,
     ) -> dict[str, Any]:
@@ -336,7 +312,6 @@ class ProviderManager:
                     if not provider.enabled
                 ),
             },
-
             "models": {
                 "count": len(models),
                 "enabled": sum(
@@ -352,7 +327,6 @@ class ProviderManager:
                     if not model.enabled
                 ),
             },
-
             "provider_list": [
                 {
                     "name": provider.name,
@@ -366,4 +340,34 @@ class ProviderManager:
                     "languages": sorted(
                         provider.supported_languages
                     ),
-                    "cap
+                    "capabilities": sorted(
+                        provider.capabilities
+                    ),
+                }
+                for provider in providers
+            ],
+            "model_list": [
+                {
+                    "name": model.name,
+                    "provider":
+                        model.provider_name,
+                    "type": model.model_type,
+                    "enabled": model.enabled,
+                    "priority": model.priority,
+                    "quality_weight":
+                        model.quality_weight,
+                    "cost_weight":
+                        model.cost_weight,
+                    "languages": sorted(
+                        model.supported_languages
+                    ),
+                    "capabilities": sorted(
+                        model.capabilities
+                    ),
+                }
+                for model in models
+            ],
+        }
+
+
+provider_manager = ProviderManager()
